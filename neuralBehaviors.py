@@ -12,7 +12,7 @@ class SetdtBehavior(Behavior):
 # redefine __init__() for doc
 class LIFBehavior(Behavior):
   DEFAULTS = {'base': {}, 'exp': {'delta': 2}}
-  def __init__(self, func:Literal['base', 'exp']='exp', adaptive=True, Urest=-70, Uthresh=-50, Ureset=-75, Upeak=30.0, R=0.5, tau_m=20, Tref=0, a=0.0, b=60, tau_w=30.0, variation=0.1, **func_kwargs):
+  def __init__(self, func:Literal['base', 'exp']='exp', adaptive=True, Urest=-70, Uthresh=-50, Ureset=-75, Upeak=30.0, R=0.5, leak=True, tau_m=20, Tref=0, a=0.0, b=60, tau_w=30.0, variation=0.1, **func_kwargs):
     """
     # Parameter
     `func`: the linear or nonlinear function
@@ -31,6 +31,8 @@ class LIFBehavior(Behavior):
     it would set to `Uthresh` if `func`=`base`
     `R`: number
     the resistance. it is the inverse of g (in some texts)
+    `leak`: bool
+    whether to leak or not
     `tau_m`: number
     the parameter of LIF
     `Tref`: number
@@ -47,7 +49,7 @@ class LIFBehavior(Behavior):
     ## function parameters
     `func_kwargs`: the parameters of the function
     """
-    super().__init__(func=func, adaptive=adaptive, Urest=Urest, Uthresh=Uthresh, Ureset=Ureset, Upeak=Upeak, R=R, tau_m=tau_m, Tref=Tref, a=a, b=b, tau_w=tau_w, variation=variation, func_kwargs=func_kwargs)
+    super().__init__(func=func, adaptive=adaptive, Urest=Urest, Uthresh=Uthresh, Ureset=Ureset, Upeak=Upeak, R=R, leak=leak, tau_m=tau_m, Tref=Tref, a=a, b=b, tau_w=tau_w, variation=variation, func_kwargs=func_kwargs)
   def initialize(self, neurons:NeuronGroup):
     # getting the parameters
     self.func = self.parameter('func', None)
@@ -65,6 +67,7 @@ class LIFBehavior(Behavior):
     if self.func in {'base'}:
       neurons.Upeak = neurons.Uthresh
     self.R = self.parameter('R', None)
+    self.leak = self.parameter('leak', None)
     self.tau_m = self.parameter('tau_m', None)
     self.Tref = self.parameter('Tref', None)
     self.a = self.parameter('a', None)
@@ -73,7 +76,7 @@ class LIFBehavior(Behavior):
     self.func_params = self.parameter('func_kwargs', None)
     self.dt = neurons.network.dt
     # init voltages
-    neurons.voltage = neurons.Urest + neurons.vector('normal(0, 5)')
+    neurons.voltage = neurons.Urest + neurons.vector(f"normal(0, {1 + variation * 5})")
     neurons.Tref = neurons.vector('zeros')
     if self.adaptive:
       neurons.w = neurons.vector('zeros')
@@ -98,7 +101,9 @@ class LIFBehavior(Behavior):
     # avoid decreasing voltage if threshold passed
     du = self.R * neurons.inp # get the input
     neurons.inp = neurons.vector(0) # reset input
-    du[~firing] -= (neurons.voltage - neurons.Urest)[~firing] # leakage
+    if self.leak:
+      du[~firing] -= (neurons.voltage - neurons.Urest)[~firing] # leakage
+      
     if self.func == 'exp':
       du += self.delta * torch.exp((neurons.voltage - neurons.Uthresh) / self.delta)
     if self.adaptive:
@@ -136,8 +141,6 @@ class InputBehavior(Behavior):
     
   def forward(self, neurons:NeuronGroup):
     deltai = self.func(neurons.network.iteration, neurons.size, **self.func_args)
-    if self.verbose:
-      print(f'delta I: {deltai}')
     neurons.inp += deltai
 
 class ImageInput:

@@ -50,7 +50,7 @@ def learnSTDP(image1, image2, intersection, image_dur=1, N=10, encoding:Literal[
         }, net=net, tag='pop_out')
 
     
-    syn = SynapseGroup(net=net, src=ng_inp, dst=ng_out, behavior={3: DeltaBehavior(**syn_params_default)})
+    syn = SynapseGroup(net=net, src=ng_inp, dst=ng_out, behavior={3: DeltaBehavior(**syn_params_default)}, tag='exc')
 
     net.initialize(info=False)
     oldW = syn.W.clone()

@@ -161,15 +161,12 @@ class DeltaBehavior(Behavior):
             post_pre = self.A_pos * (syn.src.spike.unsqueeze(1) * syn.y.unsqueeze(0)) # dim: (pre * 1) * (1 * post) = pre * post
             pre_post = self.A_neg * (syn.x.unsqueeze(1) * syn.dst.spike.unsqueeze(0))
         
-        if syn.dst.spike.any():
-            print(f'post pre (src * y) ({syn.src.voltage, syn.src.spike}, {syn.y}): \n{post_pre}')
-            print(f'pre post (x * dst) ({syn.x}, {syn.dst.voltage, syn.dst.spike}): \n{pre_post}')
+
         dw = pre_post - post_pre
         dw = dw * syn.network.dt * self.lr
         syn.W  += dw
-        # if (dw != 0).sum():
-        #     print(end=f"iter {syn.network.iteration}: ")
-        #     print(f"W diff:\n{syn.W - oldw}")
+        dw_reverse = (dw == 0) * (dw.sum() / (dw == 0).sum()) # reduce other weight for constant weights sum
+        syn.W -= dw_reverse
         
         
     def forward(self, syn:SynapseGroup):

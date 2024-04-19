@@ -7,7 +7,8 @@ class DeltaBehavior(Behavior):
     DEFAULTS = {'density': {'fix_prob': 0.1, 'fix_count': 10}}
     def __init__(self, con_mode:Literal['full', 'fix_prob', 'fix_count']='full', 
                  density=None, w_mean=50, w_mu=5, rescale:bool=False, 
-                 learn=True, tau_pos=1, tau_neg=1, A_pos=1, A_neg=1, lr=0.1,
+                 learn=True, flat=False, tau_pos=1, tau_neg=1, 
+                 trace_dur=3, trace_amp=0.8, A_pos=1, A_neg=1, lr=0.1,
                  **kwargs):
         """
         # Parameters
@@ -26,8 +27,16 @@ class DeltaBehavior(Behavior):
             whether to learn or not
         `tau_pos`: number
             pre-synaptic spike trace parameter
+            ignored if `flat` is True
         `tau_neg`: number
             post-synaptic spike trace parameter
+            ignored if `flat` is True
+        `trace_dur`: number
+            the duration of the trace
+            ignored if `flat` is False
+        `trace_amp`: number
+            the amplitude of traces
+            ignored if `flat` is False
         
         """
         if density == None:
@@ -36,7 +45,9 @@ class DeltaBehavior(Behavior):
             elif con_mode == 'fix_count': 
                 density = self.DEFAULTS['density']['fix_count']
             
-        super().__init__(con_mode=con_mode, density=density, w_mean=w_mean, w_mu=w_mu, rescale=rescale, learn=learn, tau_pos=tau_pos, tau_neg=tau_neg, A_pos=A_pos, A_neg=A_neg, lr=lr, **kwargs)
+        super().__init__(con_mode=con_mode, density=density, w_mean=w_mean, w_mu=w_mu, rescale=rescale, 
+                         learn=learn, flat=flat, tau_pos=tau_pos, tau_neg=tau_neg, 
+                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, lr=lr)
     def initialize(self, syn:SynapseGroup):
         self.init_W(syn)
         self.learnable = self.parameter('learn')
@@ -100,8 +111,19 @@ class DeltaBehavior(Behavior):
     def init_xy(self, syn:SynapseGroup):
         syn.x = syn.src.vector(0)
         syn.y = syn.dst.vector(0)
-        self.tau_pos = self.parameter('tau_pos', None)
-        self.tau_neg = self.parameter('tau_neg', None)
+        self.flat = self.parameter('flat', None)
+        if self.flat: # for both cases the other's parameters called to bypass warnings
+            self.trace_dur = self.parameter('trace_dur', None)
+            self.trace_amp = self.parameter('trace_amp', None)
+            self.parameter('tau_pos', None)
+            self.parameter('tau_neg', None)
+
+        else:    
+            self.parameter('trace_dur', None)
+            self.parameter('trace_amp', None)
+            self.tau_pos = self.parameter('tau_pos', None)
+            self.tau_neg = self.parameter('tau_neg', None)
+
         self.A_pos = self.parameter('A_pos', None)
         self.A_neg = self.parameter('A_neg', None)
         self.lr    = self.parameter('lr', None)
@@ -114,21 +136,34 @@ class DeltaBehavior(Behavior):
         """
         oldw = syn.W.clone()
 
+        if self.flat:
+            syn.x += (self.trace_dur + 1) * syn.src.spike
+            syn.y += (self.trace_dur + 1) * syn.dst.spike
+            syn.x = torch.clamp(syn.x - 1, min=0)
+            syn.y = torch.clamp(syn.y - 1, min=0)
+            
+        else:
+            dx = -syn.x / self.tau_pos
+            dx += syn.src.spike
+            dx *= syn.network.dt
+            syn.x += dx
+
+            dy = -syn.y / self.tau_neg
+            dy += syn.dst.spike
+            dy *= syn.network.dt
+            syn.y += dy
+
+        if self.flat:
+            post_pre = self.A_pos * (syn.src.spike.unsqueeze(1) * ((syn.y > 1) * self.trace_amp).unsqueeze(0)) # dim: (pre * 1) * (1 * post) = pre * post
+            pre_post = self.A_neg * (((syn.x > 1) * self.trace_amp).unsqueeze(1) * syn.dst.spike.unsqueeze(0))
         
-        dx = -syn.x / self.tau_pos
-        dx += syn.src.spike
-        dx *= syn.network.dt
-        syn.x += dx
-
-        dy = -syn.y / self.tau_neg
-        dy += syn.dst.spike
-        dy *= syn.network.dt
-        syn.y += dy
-
-        post_pre = self.A_pos * (syn.src.spike.unsqueeze(1) * syn.y.unsqueeze(0)) # dim: (pre * 1) * (1 * post) = pre * post
-        pre_post = self.A_neg * (syn.x.unsqueeze(1) * syn.dst.spike.unsqueeze(0))
-        print(f'post pre (src * y) ({syn.src.spike}, {syn.y}): \n{post_pre}')
-        print(f'pre post (x * dst) ({syn.x}, {syn.dst.spike}): \n{pre_post}')
+        else:
+            post_pre = self.A_pos * (syn.src.spike.unsqueeze(1) * syn.y.unsqueeze(0)) # dim: (pre * 1) * (1 * post) = pre * post
+            pre_post = self.A_neg * (syn.x.unsqueeze(1) * syn.dst.spike.unsqueeze(0))
+        
+        if syn.dst.spike.any():
+            print(f'post pre (src * y) ({syn.src.voltage, syn.src.spike}, {syn.y}): \n{post_pre}')
+            print(f'pre post (x * dst) ({syn.x}, {syn.dst.voltage, syn.dst.spike}): \n{pre_post}')
         dw = pre_post - post_pre
         dw = dw * syn.network.dt * self.lr
         syn.W  += dw

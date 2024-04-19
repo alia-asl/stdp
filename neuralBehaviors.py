@@ -117,7 +117,7 @@ class LIFBehavior(Behavior):
     
 
 class InputBehavior(Behavior):
-  def __init__(self, func=None, **func_args):
+  def __init__(self, func=None, verbose=False, **func_args):
     """
     Parameters:
     -----
@@ -126,20 +126,22 @@ class InputBehavior(Behavior):
 
     `func_args`: you can pass your function args
     """
-    super().__init__(func=func, func_args=func_args)
+    super().__init__(func=func, verbose=verbose, func_args=func_args)
   def initialize(self, neurons:NeuronGroup):
     self.func = self.parameter('func', lambda t, d: neurons.vector(0))
     self.func_args = self.parameter('func_args', None)
+    self.verbose:int = self.parameter('verbose', None)
     neurons.inp = neurons.vector(0)
-    super().initialize(neurons)
-
+    
+    
   def forward(self, neurons:NeuronGroup):
     deltai = self.func(neurons.network.iteration, neurons.size, **self.func_args)
-    print(f'delta I: {deltai}')
+    if self.verbose:
+      print(f'delta I: {deltai}')
     neurons.inp += deltai
 
 class ImageInput:
-  def __init__(self, images:list, N:int, intersection:float, encoding:Literal['poisson', 'numeric', 'TTFS']='poisson', time:int=10, amp:int=10) -> None:
+  def __init__(self, images:list, N:int, intersection:float, encoding:Literal['poisson', 'positional', 'TTFS']='poisson', time:int=10, amp:int=10) -> None:
     """
     Parameters
     -----
@@ -151,9 +153,9 @@ class ImageInput:
       the fraction of neurons that are used for all the images
     """
     self.images = images
-    encodings:dict[str, AbstractEncoder] = {'poisson': PoissonEncoder, 'numeric': NumericEncoder, 'TTFS': TTFSEncoder}
-    n_inter = N * intersection
-    n_sep = (N - n_inter) // len(images)
+    encodings:dict[str, AbstractEncoder] = {'poisson': PoissonEncoder, 'positional': PositionalEncoder, 'TTFS': TTFSEncoder}
+    n_inter = N * intersection # the number of intersected neurons
+    n_sep = (N - n_inter) // len(images) # the number of separate neurons
     self.encoder:AbstractEncoder = encodings[encoding](neurons_count=n_inter + n_sep, time=time)
     self.N = N
     self.n_intersect = intersection
@@ -165,6 +167,10 @@ class ImageInput:
     self.history:list[int] = [] # history of selected images
     
   def getImage(self, t, dim):
+    """
+    # Returns:
+     a 1D tensor of size `n_inter` + `n_sep`
+    """
     if t % self.time == 1:
       image_ind = random.choice(range(len(self.images))) # choose a random image
       self.history.append(image_ind)

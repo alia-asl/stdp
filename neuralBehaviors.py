@@ -144,7 +144,7 @@ class InputBehavior(Behavior):
     neurons.inp += deltai
 
 class ImageInput:
-  def __init__(self, images:list, N:int, intersection:float, encoding:Literal['poisson', 'positional', 'TTFS']='poisson', time:int=10, sleep:int=10, amp:int=10) -> None:
+  def __init__(self, images:list, N:int, intersection:float, encoding:Literal['poisson', 'positional', 'TTFS']='poisson', time:int=10, sleep:int=10, amp:int=10, fix_image:bool=False) -> None:
     """
     Parameters
     -----
@@ -166,6 +166,9 @@ class ImageInput:
     n_inter = N * intersection # the number of intersected neurons
     n_sep = (N - n_inter) // len(images) # the number of separate neurons
     self.encoder:AbstractEncoder = encodings[encoding](neurons_count=n_inter + n_sep, time=time)
+    self.fix_image = fix_image
+    if fix_image:
+      self.encodeds = [self.encoder(image) for image in images]
     self.N = N
     self.n_intersect = intersection
     self.n_sep = n_sep
@@ -184,7 +187,10 @@ class ImageInput:
     if t % (self.time + self.sleep) == 1:
       image_ind = random.choice(range(len(self.images))) # choose a random image
       self.history.append(image_ind)
-      encoded_im = self.encoder(self.images[image_ind]) # a 2D tensor of shape ('time', 'n_inter' + 'n_sep')
+      if self.fix_image:
+        encoded_im = self.encodeds[image_ind]
+      else:
+        encoded_im = self.encoder(self.images[image_ind]) # a 2D tensor of shape ('time', 'n_inter' + 'n_sep')
       base = torch.zeros((self.time, self.N))
       # first 'self.intersect' ones and the nth 'self.n_sep' would be set to encoded image
       base[:, :self.n_intersect] = encoded_im[:, :self.n_intersect]

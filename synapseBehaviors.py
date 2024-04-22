@@ -165,7 +165,8 @@ class DeltaBehavior(Behavior):
         dw = pre_post - post_pre
         dw = dw * syn.network.dt * self.lr
         syn.W  += dw
-        dw_reverse = (dw == 0) * (dw.sum() / (dw == 0).sum()) # reduce other weight for constant weights sum
+        dw_reverse:torch.Tensor = (dw == 0) * (dw.sum(dim=0) / (dw == 0).sum(dim=0)) # reduce other weight for constant weights sum
+        dw_reverse.nan_to_num(0)
         syn.W -= dw_reverse
         
         

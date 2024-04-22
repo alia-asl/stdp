@@ -144,7 +144,7 @@ class InputBehavior(Behavior):
     neurons.inp += deltai
 
 class ImageInput:
-  def __init__(self, images:list, N:int, intersection:float, encoding:Literal['poisson', 'positional', 'TTFS']='poisson', time:int=10, amp:int=10) -> None:
+  def __init__(self, images:list, N:int, intersection:float, encoding:Literal['poisson', 'positional', 'TTFS']='poisson', time:int=10, sleep:int=10, amp:int=10) -> None:
     """
     Parameters
     -----
@@ -154,6 +154,12 @@ class ImageInput:
       the total number of neurons
     `intersection`: float
       the fraction of neurons that are used for all the images
+    `encoding`: int
+      the encoding method
+    `time`: int
+      the time of the image to show spikes
+    `sleep`: int
+      the duration of sleep
     """
     self.images = images
     encodings:dict[str, AbstractEncoder] = {'poisson': PoissonEncoder, 'positional': PositionalEncoder, 'TTFS': TTFSEncoder}
@@ -164,6 +170,7 @@ class ImageInput:
     self.n_intersect = intersection
     self.n_sep = n_sep
     self.time = time
+    self.sleep = sleep
     self.amp  = amp
 
     self.past_spikes:torch.tensor
@@ -174,7 +181,7 @@ class ImageInput:
     # Returns:
      a 1D tensor of size `n_inter` + `n_sep`
     """
-    if t % self.time == 1:
+    if t % (self.time + self.sleep) == 1:
       image_ind = random.choice(range(len(self.images))) # choose a random image
       self.history.append(image_ind)
       encoded_im = self.encoder(self.images[image_ind]) # a 2D tensor of shape ('time', 'n_inter' + 'n_sep')
@@ -183,7 +190,7 @@ class ImageInput:
       base[:, :self.n_intersect] = encoded_im[:, :self.n_intersect]
       position = self.n_intersect + image_ind * self.n_sep
       base[:, position:position+self.n_sep] = encoded_im[:, self.n_intersect:]
-      self.past_spikes = base.clone()
+      self.past_spikes = torch.concat((base, torch.zeros((self.sleep, self.N))))
     return self.past_spikes[(t-1) % self.time, :] * self.amp
 
 

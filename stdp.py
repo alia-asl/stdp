@@ -1,7 +1,7 @@
 from pymonntorch import Network, NeuronGroup, SynapseGroup, Recorder, EventRecorder
 from neuralBehaviors import *
 from synapseBehaviors import DeltaBehavior
-from vis import draw_weights
+from metrics import draw_weights
 from matplotlib import pyplot as plt
 
 class STDP:
@@ -71,16 +71,20 @@ class STDP:
         self.net.initialize(info=False)
         oldW = self.syn.W.clone()
         self.net.simulate_iterations(iters)
+
+        # Visualizing
         if W_changes_step:
-            fig, ax = plt.subplots(ceil((len(self.syn.W_history) + 2) / 3), 3, figsize=(40, 20))
-            draw_weights(oldW, ax[0, 0])
+            rows = ceil(len(self.syn.W_history) / 3)
+            fig, ax = plt.subplots(rows, 3, figsize=(40, 10 * rows))
+            fontsize=20
             for i in range(len(self.syn.W_history)):
-                j = i + 1
-                draw_weights(self.syn.W_history[i], ax[j // 3, j % 3])
-            j += 1
-            draw_weights(self.syn.W, ax[j // 3, j % 3])
-            fig.suptitle("How weights change", fontsize=40)
-            plt.show()
+                draw_weights(self.syn.W_history[i], ax[i // 3, i % 3])
+                ax[i // 3, i % 3].set_title(f"iter {i * W_changes_step}", fontsize=fontsize)
+            i += 1
+            draw_weights(self.syn.W, ax[i // 3, i % 3])
+            ax[i // 3, i % 3].set_title(f"The end", fontsize=fontsize)
+            # fig.suptitle("How weights change", fontsize=40)
+            # plt.show()
         self._train_spikes = self.ng_out['spike', 0].clone()
         self._input_spikes = self.ng_inp['spike', 0].clone()
 

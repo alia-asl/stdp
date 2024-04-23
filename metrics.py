@@ -14,4 +14,8 @@ def draw_weights(weights:torch.Tensor, ax=None, width=40, height=20, padding=5, 
         for j in range(len(post_x)):
             ax.plot([pre_x[i], post_x[j]], linewidth=(weights[i][j]) / scale_w, color=color if weights[i][j] > 0 else 1 - color)
             
-
+def weights_similarity(weights:torch.Tensor):
+    cos = torch.nn.CosineSimilarity(dim=0)
+    similarity = cos(weights[:, 0], weights[:, 1])
+    return similarity
+    

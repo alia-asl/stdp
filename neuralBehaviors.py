@@ -192,12 +192,12 @@ class ImageInput:
       else:
         encoded_im = self.encoder(self.images[image_ind]) # a 2D tensor of shape ('time', 'n_inter' + 'n_sep')
       base = torch.zeros((self.time, self.N))
-      # first 'self.intersect' ones and the nth 'self.n_sep' would be set to encoded image
+      # the first 'self.intersect' ones and the nth 'self.n_sep' would be set to encoded image
       base[:, :self.n_intersect] = encoded_im[:, :self.n_intersect]
       position = self.n_intersect + image_ind * self.n_sep
       base[:, position:position+self.n_sep] = encoded_im[:, self.n_intersect:]
       self.past_spikes = torch.concat((base, torch.zeros((self.sleep, self.N))))
-    return self.past_spikes[(t-1) % self.time, :] * self.amp
+    return self.past_spikes[(t-1) % (self.time + self.sleep), :] * self.amp
 
 
 

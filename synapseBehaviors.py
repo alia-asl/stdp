@@ -2,6 +2,7 @@ from pymonntorch import Behavior, SynapseGroup, NeuronGroup
 import torch
 import random
 from typing import Literal
+from vis import draw_weights
 
 class DeltaBehavior(Behavior):
     DEFAULTS = {'density': {'fix_prob': 0.1, 'fix_count': 10}}
@@ -9,7 +10,7 @@ class DeltaBehavior(Behavior):
                  density=None, w_mean=50, w_mu=5, rescale:bool=False, 
                  learn=True, flat=False, tau_pos=1, tau_neg=1, 
                  trace_dur=3, trace_amp=0.8, A_pos=1, A_neg=1, lr=0.1,
-                 **kwargs):
+                 save_changes_step=0):
         """
         # Parameters
         -----
@@ -47,12 +48,15 @@ class DeltaBehavior(Behavior):
             
         super().__init__(con_mode=con_mode, density=density, w_mean=w_mean, w_mu=w_mu, rescale=rescale, 
                          learn=learn, flat=flat, tau_pos=tau_pos, tau_neg=tau_neg, 
-                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, lr=lr)
+                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, lr=lr, save_changes_step=save_changes_step)
     def initialize(self, syn:SynapseGroup):
         self.init_W(syn)
-        self.learnable = self.parameter('learn')
+        self.learnable = self.parameter('learn', None)
         if self.learnable:
             self.init_xy(syn)
+        self.save_changes_step = self.parameter('save_changes_step', None)
+        if self.save_changes_step:
+            syn.W_history = []
         
     def init_W(self, syn:SynapseGroup):
         con_mode = self.parameter('con_mode', 'full')
@@ -168,6 +172,8 @@ class DeltaBehavior(Behavior):
         dw_reverse:torch.Tensor = (dw == 0) * (dw.sum(dim=0) / (dw == 0).sum(dim=0)) # reduce other weight for constant weights sum
         dw_reverse.nan_to_num(0)
         syn.W -= dw_reverse
+        if self.save_changes_step and syn.network.iteration % self.save_changes_step == 0:
+            syn.W_history.append(syn.W.clone())
         
         
     def forward(self, syn:SynapseGroup):

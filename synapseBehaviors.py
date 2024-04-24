@@ -2,7 +2,7 @@ from pymonntorch import Behavior, SynapseGroup, NeuronGroup
 import torch
 import random
 from typing import Literal
-from vis import draw_weights
+from metrics import draw_weights
 
 class DeltaBehavior(Behavior):
     DEFAULTS = {'density': {'fix_prob': 0.1, 'fix_count': 10}}
@@ -169,9 +169,14 @@ class DeltaBehavior(Behavior):
         dw = pre_post - post_pre
         dw = dw * syn.network.dt * self.lr
         syn.W  += dw
-        dw_reverse:torch.Tensor = (dw == 0) * (dw.sum(dim=0) / (dw == 0).sum(dim=0)) # reduce other weight for constant weights sum
-        dw_reverse.nan_to_num(0)
+        zeros_count = (dw == 0).sum(dim=0)
+        zeros_count[zeros_count == 0] = dw.shape[0]
+        dw_reverse:torch.Tensor = (dw == 0) * (dw.sum(dim=0) / zeros_count) # reduce other weight for constant weights sum
         syn.W -= dw_reverse
+        if torch.isnan(syn.W).any():
+            print(f"dw: {dw}")
+            print(f"dw^r = {dw_reverse}")
+            raise ValueError("NaN found")
         if self.save_changes_step and syn.network.iteration % self.save_changes_step == 0:
             syn.W_history.append(syn.W.clone())
         

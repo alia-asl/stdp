@@ -50,4 +50,102 @@
 	\end{figure}
 	
 	\section{STDP}
+	\subsection{Input}
+	The input of this \textbf{STDP} was an image per time. An image is selected randomly and the encoding calculated while adding an specified number of zeros to simulate a blink (or sleep). Then, those spikes are fed into the model. This process repeated for 55 iterations- The actual iterations number is 55 times the sum of encoding and sleep time ($15 + 5 = 20$) which equals $1100$ iterations.
+	
+	The two utilized patterns was the Poisson encoding \textit{`Lena`} and \textit{`Crosses`}, because their difference was substantial and learning to differentiate them is more achievable!
+	
+	\subsection{Weights}
+	The weights are randomly initiated with a Gaussian distribution of $\mathcal{N}(50, 5)$. In the figure \ref{fig:wchange}, we can see how the weighs changed through these iterations. Every time some weights experiences some changes, the reverse was applied to the other weights, so that the sum of dendrites remain constant.
+	
+	The trend for the case which there is no intersection, shows that the first neurons which are responsible for the first image played a more important role, and this is true for both of the output neurons. The opposite is true for the other half of the input neurons, and they played an inhibitory role there.
+	
+	\begin{figure}
+		\includegraphics[width=\textwidth]{weight_change.png}
+		\caption{The changes of synaptic weights through the time. The weights are captured every 100 iteration (or in another word every 5 image, as $T_{encoding}=15$ and $T_{sleep}=5$). The blue lines indicate positive, and the orange ones show negative weights. There was not intersected neurons. The first and second half of the input neurons shows \textit{`Crosses`} and \textit{`Lena`}, respectively.}
+		\label{fig:wchange}
+	\end{figure}
+	
+	In the figure \ref{fig:wchangerev}, the first neurons show the \textit{`Lena`}, and the next neurons shows the \textit{`Crosses`}. As we can observe, in this time the first neurons shows inhibitory behavior. This is a sign that the sparser pattern becomes the excitatory and vice versa.
+
+	What can be the reason? The equation \ref{eq:dw} shows how the $dw$ is calculated. A possible explanation could be the following:
+	
+	\begin{equation}
+		dw = trace_{pre} * spikes_{post} - trace_{post} * spikes_{pre}
+		\label{eq:dw}
+	\end{equation} 
+	
+	In general, the $trace$s are smaller (they are a fraction). Moreover, $pre$ is smaller than the $post$. Therefore, $trace_{post} * spikes_{pre}$ is smaller than $trace_{pre} * spikes_{post}$ for sparser pattern. Thus, the $dw$ becomes bigger and bigger.
+	\begin{figure}
+		\includegraphics[width=\textwidth]{weight_change_reverse.png}
+		\caption{Same as figure \ref{fig:wchange}, however the two images swapped so the first neurons shows the \textit{`Lena`} image, and the second ones are for \textit{`Crosses`}.}
+		\label{fig:wchangerev}
+	\end{figure}
+	\subsubsection{Weights Similarity}
+	The dendrites weights to each of the output neurons have been shown in table \ref{table:w}. The cosine similarity of these two arrays calculated and it is $\simeq 0.99767$. This shows that the input to both neurons are almost identical, and no pattern has been learned, although the patterns were vary a lot!
+	\begin{table}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			N1 & N2 & diff \\
+			\hline
+			81.98 & 78.05 & 3.93\\
+			159.27 & 165.71 & -6.44\\
+			161.36 & 145.38 & 15.98\\
+			106.07 & 100.38 & 5.69\\
+			147.0 & 145.49 & 1.51\\
+			125.79 & 123.39 & 2.4\\
+			168.63 & 156.89 & 11.74\\
+			165.68 & 170.18 & -4.5\\
+			142.01 & 139.32 & 2.69\\
+			134.06 & 139.33 & -5.27\\
+			-49.38 & -41.08 & -8.3\\
+			53.54 & 43.54 & 10.0\\
+			0.11 & -0.15 & 0.26\\
+			-54.18 & -40.92 & -13.26\\
+			-40.15 & -38.43 & -1.72\\
+			-49.76 & -38.06 & -11.7\\
+			-56.12 & -49.64 & -6.47\\
+			-116.24 & -118.27 & 2.02\\
+			-50.61 & -44.41 & -6.2\\
+			-52.57 & -40.49 & -12.08\\
+			\hline
+		\end{tabular}
+		\caption{The dendrites weights. Left column shows the input connections to the first, and the middle column demonstrates the input weights to the second output neurons. The cosine similarity is around 0.998\%.}
+		\label{table:w}
+	\end{table}
+	\subsection{Test}
+	The last part is to test the model with the both images. Figure \ref{fig:test1} demonstrates the results. Interestingly, both of the neurons have learned the first image, and none of them can recognize the second one. As noted earlier, the first image was \textit{`Lena`}, the denser pattern.
+	
+	This is because one of them has excitatory connections to both of the neurons, and the other one has all inhibitory effects. This leads us to the observed phenomena, where only one of the images can be recognized by both of the output neurons.
+	\begin{figure}[h]
+		\includegraphics[width=0.5\textwidth]{test11.png}
+		\includegraphics[width=0.5\textwidth]{test12.png}
+		\caption{Spikes of the two neurons after training, when each of the images fed into the model. The blue horizontal and the orange vertical lines shows the first and second output neurons, respectively. Image 0 is \textit{`Lena`} and Image 1 is \textit{`Crosses`}.}
+		\label{fig:test1}
+		
+	\end{figure}
+	\subsection{More Intersection}
+	In the previous cases, there was no intersection between the neurons that represents each image. Here, we want to explore two cases: first, 0.5 common neurons, and second, all the neurons are shared for both.
+	
+	In the figure \ref{fig:w50}, the first 10 neurons are in common for both patterns. the next 5 are for the first image, and the next 5 are for the second. In this case, the shared neurons played the inhibitory role. 
+	\begin{figure}
+		\includegraphics[width=\textwidth]{weight_change50.png}
+		\caption{The weight change when there is a 50\%(first 10 neurons) intersection}
+		\label{fig:w50}
+	\end{figure}
+	
+	Like the previous case, the neurons which are devoted to the sparser pattern have inhibitory effect.
+	
+	\begin{figure}
+		\includegraphics[width=\textwidth]{weight_change100.png}
+		\caption{The weight change when all the neurons are in common}
+		\label{fig:w100}
+	\end{figure}
+	
+	Figure \ref{fig:w100} is when all the neurons are representing both of the images. 6 out of the 20 neurons play an inhibitory role, but this time it cannot be due to the input patterns. Moreover, with different executions, different neurons have negative weights.
+	
+	The cosine similarity in these both cases, remains the same (around 99\%). This shows that in general, STDP, due to its unsupervised nature, could not learn very good, even these two simply-differentiating patterns.
+	
+	\section{R-STDP}
+	
 \end{document}

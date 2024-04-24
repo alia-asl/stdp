@@ -163,14 +163,14 @@ class ImageInput:
     """
     self.images = images
     encodings:dict[str, AbstractEncoder] = {'poisson': PoissonEncoder, 'positional': PositionalEncoder, 'TTFS': TTFSEncoder}
-    n_inter = N * intersection # the number of intersected neurons
+    n_inter = int(N * intersection) # the number of intersected neurons
     n_sep = (N - n_inter) // len(images) # the number of separate neurons
     self.encoder:AbstractEncoder = encodings[encoding](neurons_count=n_inter + n_sep, time=time)
     self.fix_image = fix_image
     if fix_image:
       self.encodeds = [self.encoder(image) for image in images]
     self.N = N
-    self.n_intersect = intersection
+    self.n_intersect = n_inter
     self.n_sep = n_sep
     self.time = time
     self.sleep = sleep

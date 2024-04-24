@@ -112,7 +112,7 @@ class STDP:
         syn.W = self.syn.W
         net.simulate_iterations(self.image_dur + self.image_sleep)
         
-        return ng_inp, ng_out
+        return self.image_input.history[-1], ng_inp, ng_out
         
     
     

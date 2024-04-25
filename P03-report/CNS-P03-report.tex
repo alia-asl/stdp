@@ -60,6 +60,7 @@
 	
 	The trend for the case which there is no intersection, shows that the first neurons which are responsible for the first image played a more important role, and this is true for both of the output neurons. The opposite is true for the other half of the input neurons, and they played an inhibitory role there.
 	
+	For trace, both the flat and non-flat methods have been implemented and tested. Although in the latter one, the last stimuli matter mostly, this is not completely true. Because biologically, the earlier the stimuli arrives, the more information it contains, as it can suggests us earlier hint about the future result. Therefore, for the following experiments, the flat-STDP has been utilized.
 	\begin{figure}
 		\includegraphics[width=\textwidth]{weight_change.png}
 		\caption{The changes of synaptic weights through the time. The weights are captured every 100 iteration (or in another word every 5 image, as $T_{encoding}=15$ and $T_{sleep}=5$). The blue lines indicate positive, and the orange ones show negative weights. There was not intersected neurons. The first and second half of the input neurons shows \textit{`Crosses`} and \textit{`Lena`}, respectively.}
@@ -84,6 +85,7 @@
 	\subsubsection{Weights Similarity}
 	The dendrites weights to each of the output neurons have been shown in table \ref{table:w}. The cosine similarity of these two arrays calculated and it is $\simeq 0.99767$. This shows that the input to both neurons are almost identical, and no pattern has been learned, although the patterns were vary a lot!
 	\begin{table}
+		\centering
 		\begin{tabular}{|c|c|c|}
 			\hline
 			N1 & N2 & diff \\

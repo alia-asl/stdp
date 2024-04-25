@@ -198,6 +198,8 @@ class ImageInput:
       base[:, position:position+self.n_sep] = encoded_im[:, self.n_intersect:]
       self.past_spikes = torch.concat((base, torch.zeros((self.sleep, self.N))))
     return self.past_spikes[(t-1) % (self.time + self.sleep), :] * self.amp
+  def getLastImage(self):
+    return self.history[-1]
 
 
 

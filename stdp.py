@@ -3,6 +3,7 @@ from neuralBehaviors import *
 from synapseBehaviors import DeltaBehavior
 from metrics import draw_weights
 from matplotlib import pyplot as plt
+from inputs import noise_input
 
 class STDP:
     def __init__(self, N=10, lif_params:dict={}, syn_params:dict={}, fix_image=False) -> None:
@@ -23,7 +24,7 @@ class STDP:
         """
         self.N = N
         self.lif_params = {'tau_m': 10, 'a': -0.5, 'tau_w':  10, 'b':  20, 'R': 3, 'variation': 0.2}
-        self.syn_params = {'tau_pos': 10, 'tau_neg': 10, 'learn': True, 'lr': 1, 'w_mean': 50, 'flat': True, }
+        self.syn_params = {'tau_pos': 10, 'tau_neg': 10, 'learn': 'stdp', 'w_mean': 50,}
         self.fix_image = fix_image
 
         for key in syn_params:
@@ -53,7 +54,8 @@ class STDP:
         self.net = Network(behavior={1: SetdtBehavior()})
         self.ng_inp = NeuronGroup(self.N, behavior={
                 1: LIFBehavior(**self.lif_params),
-                2: InputBehavior(imInput.getImage, verbose=verbose),
+                3: InputBehavior(noise_input),
+                4: InputBehavior(imInput.getImage, verbose=verbose),
                 9: Recorder(variables=['inp', 'voltage']),
                 10: EventRecorder(variables=['spike']),
             }, net=self.net, tag='pop_inp')

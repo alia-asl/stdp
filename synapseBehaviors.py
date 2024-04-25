@@ -8,8 +8,8 @@ class DeltaBehavior(Behavior):
     DEFAULTS = {'density': {'fix_prob': 0.1, 'fix_count': 10}}
     def __init__(self, con_mode:Literal['full', 'fix_prob', 'fix_count']='full', 
                  density=None, w_mean=50, w_mu=5, rescale:bool=False, 
-                 learn=True, flat=False, tau_pos=1, tau_neg=1, 
-                 trace_dur=3, trace_amp=0.8, A_pos=1, A_neg=1, lr=0.1,
+                 learn:Literal[False, 'stdp', 'rstdp']=False, flat=False, tau_pos=1, tau_neg=1, 
+                 trace_dur=3, trace_amp=0.8, A_pos=1, A_neg=1,
                  save_changes_step=0):
         """
         # Parameters
@@ -48,12 +48,13 @@ class DeltaBehavior(Behavior):
             
         super().__init__(con_mode=con_mode, density=density, w_mean=w_mean, w_mu=w_mu, rescale=rescale, 
                          learn=learn, flat=flat, tau_pos=tau_pos, tau_neg=tau_neg, 
-                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, lr=lr, save_changes_step=save_changes_step)
+                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, save_changes_step=save_changes_step)
     def initialize(self, syn:SynapseGroup):
         self.init_W(syn)
-        self.learnable = self.parameter('learn', None)
-        if self.learnable:
-            self.init_xy(syn)
+        self.learn = self.parameter('learn', None)
+        if self.learn in ['stdp', 'rstdp']:
+            self.init_stdp(syn)
+        
         self.save_changes_step = self.parameter('save_changes_step', None)
         if self.save_changes_step:
             syn.W_history = []
@@ -112,7 +113,7 @@ class DeltaBehavior(Behavior):
             else:
                 syn.W[pre_neurons, i] = torch.normal(w_mean, w_mu, (len(pre_neurons), ))
 
-    def init_xy(self, syn:SynapseGroup):
+    def init_stdp(self, syn:SynapseGroup):
         syn.x = syn.src.vector(0)
         syn.y = syn.dst.vector(0)
         self.flat = self.parameter('flat', None)
@@ -130,11 +131,9 @@ class DeltaBehavior(Behavior):
 
         self.A_pos = self.parameter('A_pos', None)
         self.A_neg = self.parameter('A_neg', None)
-        self.lr    = self.parameter('lr', None)
         
-
-
-    def update_xyw(self, syn:SynapseGroup):
+    
+    def update_stdp(self, syn:SynapseGroup):
         """
         update the variable x and y, and then W for STDP
         """
@@ -167,23 +166,40 @@ class DeltaBehavior(Behavior):
         
 
         dw = pre_post - post_pre
-        dw = dw * syn.network.dt * self.lr
+        if self.learn == 'rstdp':
+            dw += self.get_reward()
+        dw = dw * syn.network.dt
         syn.W  += dw
         zeros_count = (dw == 0).sum(dim=0)
-        zeros_count[zeros_count == 0] = dw.shape[0]
-        dw_reverse:torch.Tensor = (dw == 0) * (dw.sum(dim=0) / zeros_count) # reduce other weight for constant weights sum
+        zeros_count[zeros_count == 0] = dw.shape[0] # a tensor of size post, (number of zero dw for each post, n if no zero)
+        zeros = dw == 0
+        zeros[(~zeros.any(dim=0)).repeat(syn.src.size, 1)] = dw.shape[0]
+        dw_reverse:torch.Tensor = zeros * (dw.sum(dim=0) / zeros_count) # reduce other weight for constant weights sum
         syn.W -= dw_reverse
         if torch.isnan(syn.W).any():
             print(f"dw: {dw}")
             print(f"dw^r = {dw_reverse}")
             raise ValueError("NaN found")
+        
+    def get_reward(self, syn:SynapseGroup) -> torch.Tensor:
+        expect_spikes:torch.Tensor = self.get_pattern()
+        actual_spikes:torch.Tensor = syn.dst.spike
+        reward = actual_spikes - expect_spikes
+        return reward.repeat(20, 1)
+
+
+    def get_pattern(self) -> torch.Tensor:
+        """
+        returns the expected pattern
+        """
+        ...
+
+    def forward(self, syn:SynapseGroup):
+        if self.learn == 'stdp':
+            self.update_stdp(syn)
         if self.save_changes_step and syn.network.iteration % self.save_changes_step == 0:
             syn.W_history.append(syn.W.clone())
         
-        
-    def forward(self, syn:SynapseGroup):
-        if self.learnable:
-            self.update_xyw(syn)
         spikes = syn.src.spike.float()
         output = spikes @ syn.W
         if 'exc' in syn.tags:

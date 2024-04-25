@@ -9,7 +9,7 @@ class DeltaBehavior(Behavior):
     def __init__(self, con_mode:Literal['full', 'fix_prob', 'fix_count']='full', 
                  density=None, w_mean=50, w_mu=5, rescale:bool=False, 
                  learn:Literal[False, 'stdp', 'rstdp']=False, flat=False, tau_pos=1, tau_neg=1, 
-                 trace_dur=3, trace_amp=0.8, A_pos=1, A_neg=1, answer=None,
+                 trace_dur=3, trace_amp=0.8, A_pos=1, A_neg=1, answer=None, reward=1,
                  save_changes_step=0):
         """
         # Parameters
@@ -46,7 +46,8 @@ class DeltaBehavior(Behavior):
             At every step this function would be called
             to get the desired image index to know how to send reward
             This only would be used in RSTDP
-        
+        `reward`: number
+            the amplitude of the reward function.
         """
         assert learn != 'rstdp' or answer != None
         if density == None:
@@ -57,7 +58,8 @@ class DeltaBehavior(Behavior):
             
         super().__init__(con_mode=con_mode, density=density, w_mean=w_mean, w_mu=w_mu, rescale=rescale, 
                          learn=learn, flat=flat, tau_pos=tau_pos, tau_neg=tau_neg, 
-                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, answer=answer, save_changes_step=save_changes_step)
+                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, answer=answer,
+                         reward=reward, save_changes_step=save_changes_step)
     def initialize(self, syn:SynapseGroup):
         self.init_W(syn)
         self.learn = self.parameter('learn', None)
@@ -72,6 +74,7 @@ class DeltaBehavior(Behavior):
             self.parameter('A_pos', None)
             self.parameter('A_neg', None)
             self.parameter('answer', None)
+            self.parameter('reward', None)
 
         
         self.save_changes_step = self.parameter('save_changes_step', None)
@@ -151,6 +154,7 @@ class DeltaBehavior(Behavior):
         self.A_pos = self.parameter('A_pos', None)
         self.A_neg = self.parameter('A_neg', None)
         self.answer = self.parameter('answer', None)
+        self.reward = self.parameter('reward', None)
         
     
     def update_stdp(self, syn:SynapseGroup):
@@ -187,7 +191,7 @@ class DeltaBehavior(Behavior):
 
         dw = pre_post - post_pre
         if self.learn == 'rstdp':
-            dw += self.get_reward(syn)
+            dw += self.reward * self.get_reward(syn)
         dw = dw * syn.network.dt
         syn.W  += dw
         zeros_count = (dw == 0).sum(dim=0)

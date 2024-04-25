@@ -149,5 +149,92 @@
 	The cosine similarity in these both cases, remains the same (around 99\%). This shows that in general, STDP, due to its unsupervised nature, could not learn very good, even these two simply-differentiating patterns.
 	
 	\section{R-STDP}
+	When adding reward, we have the ability to control the model, and we can reach to our expectations. Whenever any spikes occur during training, we compare it to the observing image at that time. If a neuron should (shouldn't) fire but it didn't (did), then we increase (decrease) the weights accordingly. This lets us to identify the pixels which can discriminate the two images.
+	
+	\subsection{Weights}
+	Although in the STDP method, almost always the similarity between the input of the two neurons was more than 99\%, in the R-STDP learning model, this number vary a lot. Different executions leads the similarity in the range of 38\% to 80\%!
+	
+	Lots of factors are responsible for this diversity. Some of them are:
+	\begin{itemize}
+		\item[$\bullet$] The initial weights
+		\item[$\bullet$] The encoding of the two images. How similar the two patterns are?
+		\item[$\bullet$] The arrangement of inputs during learning.
+	\end{itemize}
+	They can be alleviated by data augmentation (fed different encoding of the images into the model).
+	\begin{figure}[h]
+		\includegraphics[width=\textwidth]{rstdp_weight1.png}
+		\caption{The weight changes when using R-STDP}
+		\label{fig:wr1}
+	\end{figure}
+	
+	One of the most successful runs was shown in the figure \ref{fig:wr1}. That model predicted all the 24 samples of the 2 images correctly. The results are demonstrated in the figure \ref{fig:rtest1}. The input weights similarity of the two output neurons was 75\% (shown in the table\ref{table:wr}).
+	\begin{table}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			N1 & N2 & diff \\
+			-109.85 & -11.72 & -98.13\\
+			38.58 & 56.64 & -18.07\\
+			85.51 & 81.78 & 3.73\\
+			-26.72 & 23.11 & -49.83\\
+			15.67 & -11.5 & 27.17\\
+			57.1 & 125.98 & -68.88\\
+			65.25 & 161.0 & -95.75\\
+			108.32 & 132.21 & -23.9\\
+			91.74 & 44.37 & 47.36\\
+			145.23 & 80.82 & 64.41\\
+			51.52 & 16.54 & 34.98\\
+			128.9 & 71.96 & 56.95\\
+			-46.05 & 1.89 & -47.94\\
+			123.59 & 59.73 & 63.86\\
+			58.46 & 86.21 & -27.75\\
+			74.87 & 1.94 & 72.93\\
+			1.87 & 19.16 & -17.29\\
+			40.1 & -30.95 & 71.05\\
+			74.08 & 95.54 & -21.46\\
+			-3.07 & 14.06 & -17.14\\
+			\hline
+		\end{tabular}
+		\hspace{1.5cm}
+		\begin{tabular}{|c|c|c|}
+			\hline
+			N1 & N2 & diff \\
+			94.88 & 108.72 & -13.84\\
+			81.99 & 38.07 & 43.92\\
+			20.26 & 40.82 & -20.56\\
+			76.47 & 106.86 & -30.39\\
+			42.6 & 143.49 & -100.9\\
+			64.68 & 119.8 & -55.11\\
+			122.88 & 98.28 & 24.6\\
+			55.81 & -43.66 & 99.47\\
+			139.63 & 120.11 & 19.52\\
+			63.65 & 87.73 & -24.07\\
+			120.72 & 9.09 & 111.63\\
+			-89.5 & -52.23 & -37.27\\
+			70.06 & -5.0 & 75.06\\
+			-94.55 & 31.27 & -125.82\\
+			60.0 & 96.01 & -36.01\\
+			40.33 & -1.31 & 41.64\\
+			32.92 & -28.41 & 61.33\\
+			-52.81 & 32.44 & -85.25\\
+			96.45 & 37.32 & 59.13\\
+			46.8 & 88.29 & -41.49\\
+			\hline
+		\end{tabular}
+		\caption{The difference between synaptic weights, after training using the R-STDP. Unlike the STDP method which the weights were 99\% similar, R-STDP depicts larger difference. Here, we show two different training. In the left one (which the weights have been shown in figure \ref{fig:wr1}) the cosine similarity is 75.2\%, and it is 66.4\% for the right one.}
+		\label{table:wr}
+	\end{table}
+	
+	\subsection{Test}
+	Various executions leads us to distinct results. For instance, there was a 100\% accuracy for 24 tests, which depicted in figure \ref{fig:rtest1}. The weights of this run have been shown in figure\ref{fig:wr1} and in the left table of \ref{table:wr}. This success was mostly thanks to the large contrast between two patterns. Yet, we can see another run where the accuracy was less than 80\%, which shows the huge effect of randomness in R-STDP.
+	\begin{figure}[h]
+		\includegraphics[width=\textwidth]{rstdp_test1.png}
+		\caption{The result of one execution of R-STDP learning. Each plot shows the spikes of the two output neurons. The classification has been made upon observing one more spike from an output neuron. In this one, all of the prediction was correct.}
+		\label{fig:rtest1}
+	\end{figure}
+	\begin{figure}[h]
+		\includegraphics[width=\textwidth]{rstdp_test2.png}
+		\caption{The result of another execution of R-STDP learning. Everything was similar to fig\ref{fig:rtest1}, however this time 19 out of the 24 tests was correct (79\% accuracy).}
+		\label{fig:rtest2}
+	\end{figure}	
 	
 \end{document}

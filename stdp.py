@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from inputs import noise_input
 
 class STDP:
-    def __init__(self, N=10, lif_params:dict={}, syn_params:dict={}, fix_image=False) -> None:
+    def __init__(self, N=10, lif_params:dict={}, syn_params:dict={}, fix_image=True, rstdp=False) -> None:
         """
         Params:
         -----
@@ -24,9 +24,9 @@ class STDP:
         """
         self.N = N
         self.lif_params = {'tau_m': 10, 'a': -0.5, 'tau_w':  10, 'b':  20, 'R': 3, 'variation': 0.2}
-        self.syn_params = {'tau_pos': 10, 'tau_neg': 10, 'learn': 'stdp', 'w_mean': 50,}
+        self.syn_params = {'tau_pos': 10, 'tau_neg': 10, 'learn': False, 'w_mean': 50,}
         self.fix_image = fix_image
-
+        
         for key in syn_params:
             self.syn_params[key] = syn_params[key]
         
@@ -68,7 +68,7 @@ class STDP:
             }, net=self.net, tag='pop_out')
 
         
-        self.syn = SynapseGroup(net=self.net, src=self.ng_inp, dst=self.ng_out, behavior={3: DeltaBehavior(**self.syn_params, save_changes_step=W_changes_step)}, tag='exc')
+        self.syn = SynapseGroup(net=self.net, src=self.ng_inp, dst=self.ng_out, behavior={3: DeltaBehavior(**self.syn_params, save_changes_step=W_changes_step, answer=imInput.getLastImage)}, tag='exc')
 
         self.net.initialize(info=False)
         oldW = self.syn.W.clone()
@@ -91,7 +91,13 @@ class STDP:
         self._input_spikes = self.ng_inp['spike', 0].clone()
 
         return {'images_history': imInput.history, 'oldW': oldW, 'newW': self.syn.W.clone()}
-    def test(self) -> torch.Tensor:
+    def test(self, conf=1) -> torch.Tensor:
+        """
+        Parameters:
+        -----
+        `conf`: int
+            how many times should spikes more to figure out the class
+        """
         net = Network(behavior={1:SetdtBehavior()})
         ng_inp = NeuronGroup(self.N, behavior={
                 1: LIFBehavior(**self.lif_params),
@@ -107,14 +113,30 @@ class STDP:
                 10: EventRecorder(variables=['spike']),
             }, net=net, tag='pop_out')
 
-        
-        syn = SynapseGroup(net=net, src=ng_inp, dst=ng_out, behavior={3: DeltaBehavior(**self.syn_params)}, tag='exc')
+        syn_params = self.syn_params.copy()
+        syn_params['learn'] = False
+        syn = SynapseGroup(net=net, src=ng_inp, dst=ng_out, behavior={3: DeltaBehavior(**syn_params)}, tag='exc')
 
         net.initialize(info=False)
         syn.W = self.syn.W
-        net.simulate_iterations(self.image_dur + self.image_sleep)
-        
-        return self.image_input.history[-1], ng_inp, ng_out
+        net.simulate_iterations(self.image_dur + self.image_sleep, measure_block_time=False)
+        spikes = ng_out['spike', 0]
+        diff = 0
+        i = 0
+        while i < len(spikes):
+            if abs(diff) >= conf:
+                break
+            if i+1 < len(spikes) and spikes[i, 0] == spikes[i+1, 0]:
+                i += 2
+                continue
+            if spikes[i, 1] == 0:
+                diff -= 1
+            elif spikes[i, 1] == 1:
+                diff += 1
+            i += 1
+            
+        predicted = int(diff > 0)
+        return {'actual': self.image_input.history[-1], 'predict': predicted, 'ng_inp': ng_inp, 'ng_out': ng_out}
         
     
     

@@ -154,6 +154,8 @@ class ImageInput:
       the total number of neurons
     `intersection`: float
       the fraction of neurons that are used for all the images
+    `indices`: list of ints or none
+      indicates the images to be passed, if none random images
     `encoding`: int
       the encoding method
     `time`: int
@@ -179,13 +181,16 @@ class ImageInput:
     self.past_spikes:torch.tensor
     self.history:list[int] = [] # history of selected images
     
-  def getImage(self, t, dim):
+  def getImage(self, t, dim, index = None):
     """
     # Returns:
      a 1D tensor of size `n_inter` + `n_sep`
     """
     if t % (self.time + self.sleep) == 1:
-      image_ind = random.choice(range(len(self.images))) # choose a random image
+      if index == None:
+        image_ind = random.choice(range(len(self.images))) # choose a random image
+      else:
+        image_ind = index
       self.history.append(image_ind)
       if self.fix_image:
         encoded_im = self.encodeds[image_ind]

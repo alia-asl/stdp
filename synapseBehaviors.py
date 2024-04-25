@@ -9,7 +9,7 @@ class DeltaBehavior(Behavior):
     def __init__(self, con_mode:Literal['full', 'fix_prob', 'fix_count']='full', 
                  density=None, w_mean=50, w_mu=5, rescale:bool=False, 
                  learn:Literal[False, 'stdp', 'rstdp']=False, flat=False, tau_pos=1, tau_neg=1, 
-                 trace_dur=3, trace_amp=0.8, A_pos=1, A_neg=1,
+                 trace_dur=3, trace_amp=0.8, A_pos=1, A_neg=1, answer=None,
                  save_changes_step=0):
         """
         # Parameters
@@ -26,6 +26,8 @@ class DeltaBehavior(Behavior):
             whether to rescale synaptic weights or not
         `learn`: bool
             whether to learn or not
+        `flat`: bool
+            whether to use flat method or not
         `tau_pos`: number
             pre-synaptic spike trace parameter
             ignored if `flat` is True
@@ -38,8 +40,15 @@ class DeltaBehavior(Behavior):
         `trace_amp`: number
             the amplitude of traces
             ignored if `flat` is False
+        `A_pos` and `A_neg`: number
+            parameters of the STDP
+        `answer`: a callable
+            At every step this function would be called
+            to get the desired image index to know how to send reward
+            This only would be used in RSTDP
         
         """
+        assert learn != 'rstdp' or answer != None
         if density == None:
             if con_mode == 'fix_prob':
                 density = self.DEFAULTS['density']['fix_prob']
@@ -48,12 +57,22 @@ class DeltaBehavior(Behavior):
             
         super().__init__(con_mode=con_mode, density=density, w_mean=w_mean, w_mu=w_mu, rescale=rescale, 
                          learn=learn, flat=flat, tau_pos=tau_pos, tau_neg=tau_neg, 
-                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, save_changes_step=save_changes_step)
+                         trace_dur=trace_dur, trace_amp=trace_amp, A_pos=A_pos, A_neg=A_neg, answer=answer, save_changes_step=save_changes_step)
     def initialize(self, syn:SynapseGroup):
         self.init_W(syn)
         self.learn = self.parameter('learn', None)
         if self.learn in ['stdp', 'rstdp']:
             self.init_stdp(syn)
+        else:
+            self.parameter('flat', None)
+            self.parameter('trace_dur', None)
+            self.parameter('trace_amp', None)
+            self.parameter('tau_pos', None)
+            self.parameter('tau_neg', None)
+            self.parameter('A_pos', None)
+            self.parameter('A_neg', None)
+            self.parameter('answer', None)
+
         
         self.save_changes_step = self.parameter('save_changes_step', None)
         if self.save_changes_step:
@@ -131,6 +150,7 @@ class DeltaBehavior(Behavior):
 
         self.A_pos = self.parameter('A_pos', None)
         self.A_neg = self.parameter('A_neg', None)
+        self.answer = self.parameter('answer', None)
         
     
     def update_stdp(self, syn:SynapseGroup):
@@ -167,7 +187,7 @@ class DeltaBehavior(Behavior):
 
         dw = pre_post - post_pre
         if self.learn == 'rstdp':
-            dw += self.get_reward()
+            dw += self.get_reward(syn)
         dw = dw * syn.network.dt
         syn.W  += dw
         zeros_count = (dw == 0).sum(dim=0)
@@ -182,20 +202,27 @@ class DeltaBehavior(Behavior):
             raise ValueError("NaN found")
         
     def get_reward(self, syn:SynapseGroup) -> torch.Tensor:
-        expect_spikes:torch.Tensor = self.get_pattern()
+        expect_spikes:torch.Tensor = self.get_pattern(syn)
         actual_spikes:torch.Tensor = syn.dst.spike
-        reward = actual_spikes - expect_spikes
+        reward = expect_spikes - actual_spikes
         return reward.repeat(20, 1)
 
 
-    def get_pattern(self) -> torch.Tensor:
+    def get_pattern(self, syn:SynapseGroup) -> torch.Tensor:
         """
         returns the expected pattern
+        a tensor of size post synaptic
         """
-        ...
+        spikes = syn.dst.vector(0)
+        try:
+            imInd = self.answer()
+            spikes[imInd] = 1
+        except:
+            pass
+        return spikes
 
     def forward(self, syn:SynapseGroup):
-        if self.learn == 'stdp':
+        if self.learn in ['stdp', 'rstdp']:
             self.update_stdp(syn)
         if self.save_changes_step and syn.network.iteration % self.save_changes_step == 0:
             syn.W_history.append(syn.W.clone())
